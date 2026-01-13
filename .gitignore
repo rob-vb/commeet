@@ -4,7 +4,9 @@ node_modules/
 # Build outputs
 .output/
 .vinxi/
+.netlify/
 dist/
+*.timestamp*.js
 
 # Convex
 convex/_generated/
