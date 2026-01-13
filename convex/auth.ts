@@ -59,22 +59,27 @@ export const getCurrentUserWithAccounts = query({
     }
     if (!authUser) return null;
 
-    // Query the better auth accounts table directly
-    const githubAccount = await ctx.db
-      .query("betterAuth_accounts" as any)
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("userId"), authUser.id),
-          q.eq(q.field("providerId"), "github")
-        )
-      )
-      .unique();
+    // Get all accounts for debugging - find any that match by providerId github
+    const allAccounts = await ctx.db.query("betterAuth_accounts" as any).collect();
+
+    // Find GitHub account matching this user
+    const githubAccount = allAccounts.find((acc: any) =>
+      acc.providerId === "github" &&
+      (acc.userId === authUser.id || acc.userId === (authUser as any)._id)
+    );
 
     return {
       user: authUser,
       hasGitHub: !!githubAccount,
       githubAccessToken: (githubAccount as any)?.accessToken || null,
       githubUsername: (githubAccount as any)?.accountId || null,
+      // Debug info - remove in production
+      debug: {
+        authUserId: authUser.id,
+        authUser_id: (authUser as any)._id,
+        accountsCount: allAccounts.length,
+        accountUserIds: allAccounts.map((a: any) => ({ userId: a.userId, providerId: a.providerId })),
+      },
     };
   },
 });
