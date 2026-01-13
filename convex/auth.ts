@@ -50,16 +50,22 @@ export const getCurrentUserWithAccounts = query({
     const authUser = await authComponent.getAuthUser(ctx);
     if (!authUser) return null;
 
-    // Get linked accounts
-    const accounts = await authComponent.listAccounts(ctx, authUser.id);
-
-    const githubAccount = accounts.find((a) => a.providerId === "github");
+    // Query the better auth accounts table directly
+    const githubAccount = await ctx.db
+      .query("betterAuth_accounts" as any)
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("userId"), authUser.id),
+          q.eq(q.field("providerId"), "github")
+        )
+      )
+      .unique();
 
     return {
       user: authUser,
       hasGitHub: !!githubAccount,
-      githubAccessToken: githubAccount?.accessToken || null,
-      githubUsername: githubAccount?.accountId || null,
+      githubAccessToken: (githubAccount as any)?.accessToken || null,
+      githubUsername: (githubAccount as any)?.accountId || null,
     };
   },
 });
