@@ -61,9 +61,11 @@ function SignupPage() {
     setError("");
     setLoading(true);
     try {
+      // For cross-domain auth, callbackURL must be absolute
+      const siteUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
       await signIn.social({
         provider: "github",
-        callbackURL: "/dashboard",
+        callbackURL: `${siteUrl}/dashboard`,
       });
     } catch {
       setError("Failed to sign in with GitHub");
