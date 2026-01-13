@@ -49,6 +49,20 @@ function LoginPage() {
     }
   };
 
+  const handleGitHubSignIn = async () => {
+    setError("");
+    setLoading(true);
+    try {
+      await signIn.social({
+        provider: "github",
+        callbackURL: "/dashboard",
+      });
+    } catch {
+      setError("Failed to sign in with GitHub");
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <Card className="w-full max-w-md">
@@ -118,6 +132,7 @@ function LoginPage() {
               variant="outline"
               className="w-full gap-2"
               disabled={loading}
+              onClick={handleGitHubSignIn}
             >
               <Github className="h-4 w-4" />
               Continue with GitHub

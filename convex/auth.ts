@@ -19,6 +19,13 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
       enabled: true,
       requireEmailVerification: false,
     },
+    socialProviders: {
+      github: {
+        clientId: process.env.GITHUB_CLIENT_ID!,
+        clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+        scope: ["read:user", "user:email", "repo"],
+      },
+    },
     plugins: [
       // The cross domain plugin is required for client side frameworks
       crossDomain({ siteUrl }),
@@ -33,5 +40,26 @@ export const getCurrentUser = query({
   args: {},
   handler: async (ctx) => {
     return authComponent.getAuthUser(ctx);
+  },
+});
+
+// Get the current user with their linked accounts
+export const getCurrentUserWithAccounts = query({
+  args: {},
+  handler: async (ctx) => {
+    const authUser = await authComponent.getAuthUser(ctx);
+    if (!authUser) return null;
+
+    // Get linked accounts
+    const accounts = await authComponent.listAccounts(ctx, authUser.id);
+
+    const githubAccount = accounts.find((a) => a.providerId === "github");
+
+    return {
+      user: authUser,
+      hasGitHub: !!githubAccount,
+      githubAccessToken: githubAccount?.accessToken || null,
+      githubUsername: githubAccount?.accountId || null,
+    };
   },
 });

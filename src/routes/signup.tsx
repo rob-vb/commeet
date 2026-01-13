@@ -13,7 +13,7 @@ import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Separator } from "~/components/ui/separator";
 import { GitCommit, Github, Loader2 } from "lucide-react";
-import { signUp } from "~/lib/auth-client";
+import { signUp, signIn } from "~/lib/auth-client";
 
 export const Route = createFileRoute("/signup")({
   component: SignupPage,
@@ -53,6 +53,20 @@ function SignupPage() {
     } catch {
       setError("An error occurred. Please try again.");
     } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGitHubSignIn = async () => {
+    setError("");
+    setLoading(true);
+    try {
+      await signIn.social({
+        provider: "github",
+        callbackURL: "/dashboard",
+      });
+    } catch {
+      setError("Failed to sign in with GitHub");
       setLoading(false);
     }
   };
@@ -141,6 +155,7 @@ function SignupPage() {
               variant="outline"
               className="w-full gap-2"
               disabled={loading}
+              onClick={handleGitHubSignIn}
             >
               <Github className="h-4 w-4" />
               Continue with GitHub

@@ -1,4 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import { useQuery, useMutation, useAction } from "convex/react";
+import { api } from "~/lib/convex";
 import { Button } from "~/components/ui/button";
 import {
   Card,
@@ -9,24 +12,104 @@ import {
 } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { Input } from "~/components/ui/input";
-import { Github, Plus, Search, RefreshCw, Lock, Globe } from "lucide-react";
+import {
+  Github,
+  Plus,
+  Search,
+  RefreshCw,
+  Lock,
+  Globe,
+  Check,
+  Loader2,
+} from "lucide-react";
+import { signIn } from "~/lib/auth-client";
 
 export const Route = createFileRoute("/dashboard/repositories")({
   component: RepositoriesPage,
 });
 
 function RepositoriesPage() {
-  // Placeholder data - will be replaced with real data from Convex
-  const isGitHubConnected = false;
-  const repositories: Array<{
-    id: string;
-    name: string;
-    fullName: string;
-    description: string | null;
-    isPrivate: boolean;
-    isConnected: boolean;
-    lastSyncedAt: number | null;
-  }> = [];
+  const [search, setSearch] = useState("");
+  const [syncing, setSyncing] = useState(false);
+  const [connectingRepo, setConnectingRepo] = useState<number | null>(null);
+
+  // Get current user with GitHub status
+  const userWithAccounts = useQuery(api.auth.getCurrentUserWithAccounts);
+  const isGitHubConnected = userWithAccounts?.hasGitHub ?? false;
+
+  // Get repositories
+  const repositories = useQuery(
+    api.repositories.listByUser,
+    userWithAccounts?.user?.id
+      ? { userId: userWithAccounts.user.id as any }
+      : "skip"
+  );
+
+  // Actions
+  const fetchRepos = useAction(api.github.fetchGitHubRepos);
+  const connectRepo = useMutation(api.repositories.create);
+  const disconnectRepo = useMutation(api.repositories.deactivate);
+
+  const handleConnectGitHub = async () => {
+    try {
+      await signIn.social({
+        provider: "github",
+        callbackURL: "/dashboard/repositories",
+      });
+    } catch (error) {
+      console.error("Failed to connect GitHub:", error);
+    }
+  };
+
+  const handleSyncRepos = async () => {
+    if (!userWithAccounts?.githubAccessToken || !userWithAccounts.user?.id)
+      return;
+    setSyncing(true);
+    try {
+      await fetchRepos({
+        accessToken: userWithAccounts.githubAccessToken,
+        userId: userWithAccounts.user.id as any,
+      });
+    } catch (error) {
+      console.error("Failed to sync repos:", error);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleToggleRepo = async (repo: any) => {
+    if (repo.isActive) {
+      await disconnectRepo({ id: repo._id });
+    } else {
+      setConnectingRepo(repo.githubId);
+      await connectRepo({
+        userId: userWithAccounts!.user!.id as any,
+        githubId: repo.githubId,
+        name: repo.name,
+        fullName: repo.fullName,
+        description: repo.description,
+        isPrivate: repo.isPrivate,
+        defaultBranch: repo.defaultBranch,
+        url: repo.url,
+      });
+      setConnectingRepo(null);
+    }
+  };
+
+  const filteredRepos =
+    repositories?.filter(
+      (repo) =>
+        repo.name.toLowerCase().includes(search.toLowerCase()) ||
+        repo.fullName.toLowerCase().includes(search.toLowerCase())
+    ) ?? [];
+
+  if (!userWithAccounts) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">
@@ -38,9 +121,14 @@ function RepositoriesPage() {
           </p>
         </div>
         {isGitHubConnected && (
-          <Button variant="outline" className="gap-2">
-            <RefreshCw className="h-4 w-4" />
-            Sync Repositories
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={handleSyncRepos}
+            disabled={syncing}
+          >
+            <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+            {syncing ? "Syncing..." : "Sync Repositories"}
           </Button>
         )}
       </div>
@@ -58,7 +146,7 @@ function RepositoriesPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button className="gap-2">
+            <Button className="gap-2" onClick={handleConnectGitHub}>
               <Github className="h-4 w-4" />
               Connect GitHub Account
             </Button>
@@ -66,28 +154,44 @@ function RepositoriesPage() {
         </Card>
       ) : (
         <>
-          {/* Search */}
           <div className="mb-6 flex items-center gap-4">
-            <div className="relative flex-1 max-w-md">
+            <div className="relative max-w-md flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Search repositories..." className="pl-10" />
+              <Input
+                placeholder="Search repositories..."
+                className="pl-10"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
             </div>
           </div>
 
-          {/* Repository List */}
-          {repositories.length === 0 ? (
+          {!repositories ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+          ) : filteredRepos.length === 0 ? (
             <Card className="text-center">
               <CardContent className="py-12">
-                <p className="text-muted-foreground">
-                  No repositories found. Your GitHub repositories will appear
-                  here.
+                <p className="mb-4 text-muted-foreground">
+                  {repositories.length === 0
+                    ? "No repositories found. Click 'Sync Repositories' to fetch your GitHub repos."
+                    : "No repositories match your search."}
                 </p>
+                {repositories.length === 0 && (
+                  <Button onClick={handleSyncRepos} disabled={syncing}>
+                    <RefreshCw
+                      className={`mr-2 h-4 w-4 ${syncing ? "animate-spin" : ""}`}
+                    />
+                    Sync Now
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ) : (
             <div className="grid gap-4">
-              {repositories.map((repo) => (
-                <Card key={repo.id}>
+              {filteredRepos.map((repo) => (
+                <Card key={repo._id}>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
@@ -105,18 +209,28 @@ function RepositoriesPage() {
                             </>
                           )}
                         </Badge>
+                        {repo.isActive && (
+                          <Badge className="gap-1 bg-green-500">
+                            <Check className="h-3 w-3" />
+                            Connected
+                          </Badge>
+                        )}
                       </div>
                       <CardDescription>
                         {repo.description || "No description"}
                       </CardDescription>
                     </div>
                     <Button
-                      variant={repo.isConnected ? "secondary" : "default"}
+                      variant={repo.isActive ? "secondary" : "default"}
                       size="sm"
                       className="gap-2"
+                      onClick={() => handleToggleRepo(repo)}
+                      disabled={connectingRepo === repo.githubId}
                     >
-                      {repo.isConnected ? (
-                        <>Connected</>
+                      {connectingRepo === repo.githubId ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : repo.isActive ? (
+                        "Disconnect"
                       ) : (
                         <>
                           <Plus className="h-4 w-4" />
@@ -125,11 +239,10 @@ function RepositoriesPage() {
                       )}
                     </Button>
                   </CardHeader>
-                  {repo.isConnected && repo.lastSyncedAt && (
+                  {repo.isActive && repo.lastSyncedAt && (
                     <CardContent>
                       <p className="text-xs text-muted-foreground">
-                        Last synced:{" "}
-                        {new Date(repo.lastSyncedAt).toLocaleString()}
+                        Last synced: {new Date(repo.lastSyncedAt).toLocaleString()}
                       </p>
                     </CardContent>
                   )}
