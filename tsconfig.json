@@ -17,9 +17,9 @@
     "noUncheckedIndexedAccess": true,
     "baseUrl": ".",
     "paths": {
-      "~/*": ["./app/*"]
+      "~/*": ["./src/*"]
     }
   },
-  "include": ["app/**/*", "convex/**/*"],
+  "include": ["src/**/*", "convex/**/*"],
   "exclude": ["node_modules"]
 }
