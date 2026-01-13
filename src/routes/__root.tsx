@@ -8,6 +8,7 @@ import {
 import type { ReactNode } from "react";
 
 import appCss from "~/styles/globals.css?url";
+import { ConvexClientProvider } from "~/lib/convex-provider";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -44,7 +45,11 @@ export const Route = createRootRoute({
 });
 
 function RootComponent() {
-  return <Outlet />;
+  return (
+    <ConvexClientProvider>
+      <Outlet />
+    </ConvexClientProvider>
+  );
 }
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
