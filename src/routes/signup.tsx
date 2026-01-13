@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "~/components/ui/button";
 import {
   Card,
@@ -13,7 +13,7 @@ import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Separator } from "~/components/ui/separator";
 import { GitCommit, Github, Loader2 } from "lucide-react";
-import { signUp, signIn } from "~/lib/auth-client";
+import { signUp, signIn, useSession } from "~/lib/auth-client";
 
 export const Route = createFileRoute("/signup")({
   component: SignupPage,
@@ -21,11 +21,19 @@ export const Route = createFileRoute("/signup")({
 
 function SignupPage() {
   const navigate = useNavigate();
+  const { data: session, isPending } = useSession();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (!isPending && session) {
+      navigate({ to: "/dashboard" });
+    }
+  }, [session, isPending, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
