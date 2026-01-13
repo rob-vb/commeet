@@ -42,3 +42,24 @@ export const getCurrentUser = query({
     return authComponent.getAuthUser(ctx);
   },
 });
+
+// Get the current user with their linked accounts
+export const getCurrentUserWithAccounts = query({
+  args: {},
+  handler: async (ctx) => {
+    const authUser = await authComponent.getAuthUser(ctx);
+    if (!authUser) return null;
+
+    // Get linked accounts
+    const accounts = await authComponent.listAccounts(ctx, authUser.id);
+
+    const githubAccount = accounts.find((a) => a.providerId === "github");
+
+    return {
+      user: authUser,
+      hasGitHub: !!githubAccount,
+      githubAccessToken: githubAccount?.accessToken || null,
+      githubUsername: githubAccount?.accountId || null,
+    };
+  },
+});
