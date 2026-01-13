@@ -60,7 +60,7 @@ export const getCurrentUserWithAccounts = query({
     if (!authUser) return null;
 
     // Query accounts through the component adapter
-    const accounts = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+    const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
       model: "account",
       where: [
         {
@@ -68,7 +68,12 @@ export const getCurrentUserWithAccounts = query({
           value: authUser.id,
         },
       ],
-    })) as any[];
+      paginationOpts: {
+        cursor: null,
+        numItems: 10,
+      },
+    })) as any;
+    const accounts = result?.page || [];
 
     // Find GitHub account
     const githubAccount = accounts.find((acc: any) => acc.providerId === "github");
