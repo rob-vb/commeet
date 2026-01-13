@@ -39,7 +39,11 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 export const getCurrentUser = query({
   args: {},
   handler: async (ctx) => {
-    return authComponent.getAuthUser(ctx);
+    try {
+      return await authComponent.getAuthUser(ctx);
+    } catch {
+      return null;
+    }
   },
 });
 
@@ -47,7 +51,12 @@ export const getCurrentUser = query({
 export const getCurrentUserWithAccounts = query({
   args: {},
   handler: async (ctx) => {
-    const authUser = await authComponent.getAuthUser(ctx);
+    let authUser;
+    try {
+      authUser = await authComponent.getAuthUser(ctx);
+    } catch {
+      return null;
+    }
     if (!authUser) return null;
 
     // Query the better auth accounts table directly

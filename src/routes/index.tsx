@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { Button } from "~/components/ui/button";
 import {
   Card,
@@ -9,12 +10,22 @@ import {
 } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { GitCommit, Twitter, Sparkles, Zap } from "lucide-react";
+import { useSession } from "~/lib/auth-client";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
 });
 
 function HomePage() {
+  const navigate = useNavigate();
+  const { data: session, isPending } = useSession();
+
+  // Redirect logged-in users to dashboard
+  useEffect(() => {
+    if (!isPending && session) {
+      navigate({ to: "/dashboard" });
+    }
+  }, [session, isPending, navigate]);
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
