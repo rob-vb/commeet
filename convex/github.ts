@@ -104,3 +104,134 @@ export const fetchGitHubRepos = action({
     return formattedRepos;
   },
 });
+
+// Internal mutation to store commits
+export const storeCommits = internalMutation({
+  args: {
+    repositoryId: v.id("repositories"),
+    userId: v.id("users"),
+    commits: v.array(
+      v.object({
+        sha: v.string(),
+        message: v.string(),
+        authorName: v.string(),
+        authorEmail: v.string(),
+        committedAt: v.number(),
+        url: v.string(),
+        filesChanged: v.array(
+          v.object({
+            filename: v.string(),
+            status: v.string(),
+            additions: v.number(),
+            deletions: v.number(),
+          })
+        ),
+        totalAdditions: v.number(),
+        totalDeletions: v.number(),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const insertedIds: string[] = [];
+
+    for (const commit of args.commits) {
+      // Check if commit already exists
+      const existing = await ctx.db
+        .query("commits")
+        .withIndex("by_sha", (q) => q.eq("sha", commit.sha))
+        .unique();
+
+      if (!existing) {
+        const id = await ctx.db.insert("commits", {
+          repositoryId: args.repositoryId,
+          userId: args.userId,
+          ...commit,
+        });
+        insertedIds.push(id);
+      }
+    }
+
+    return insertedIds;
+  },
+});
+
+// Action to fetch commits from GitHub API for a repository
+export const fetchGitHubCommits = action({
+  args: {
+    accessToken: v.string(),
+    userId: v.id("users"),
+    repositoryId: v.id("repositories"),
+    repoFullName: v.string(),
+    since: v.optional(v.string()), // ISO date string
+  },
+  handler: async (ctx, args) => {
+    const url = new URL(`https://api.github.com/repos/${args.repoFullName}/commits`);
+    url.searchParams.set("per_page", "30");
+    if (args.since) {
+      url.searchParams.set("since", args.since);
+    }
+
+    const response = await fetch(url.toString(), {
+      headers: {
+        Authorization: `Bearer ${args.accessToken}`,
+        Accept: "application/vnd.github+json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`GitHub API error: ${response.status}`);
+    }
+
+    const commits = await response.json();
+
+    // Fetch detailed info for each commit (to get file changes)
+    const detailedCommits = await Promise.all(
+      commits.slice(0, 20).map(async (commit: any) => {
+        const detailResponse = await fetch(
+          `https://api.github.com/repos/${args.repoFullName}/commits/${commit.sha}`,
+          {
+            headers: {
+              Authorization: `Bearer ${args.accessToken}`,
+              Accept: "application/vnd.github+json",
+            },
+          }
+        );
+
+        if (!detailResponse.ok) {
+          return null;
+        }
+
+        const detail = await detailResponse.json();
+        return {
+          sha: commit.sha,
+          message: commit.commit.message,
+          authorName: commit.commit.author?.name || "Unknown",
+          authorEmail: commit.commit.author?.email || "",
+          committedAt: new Date(commit.commit.author?.date || Date.now()).getTime(),
+          url: commit.html_url,
+          filesChanged: (detail.files || []).slice(0, 50).map((file: any) => ({
+            filename: file.filename,
+            status: file.status,
+            additions: file.additions || 0,
+            deletions: file.deletions || 0,
+          })),
+          totalAdditions: detail.stats?.additions || 0,
+          totalDeletions: detail.stats?.deletions || 0,
+        };
+      })
+    );
+
+    const validCommits = detailedCommits.filter(Boolean);
+
+    // Store commits in database
+    if (validCommits.length > 0) {
+      await ctx.runMutation(internal.github.storeCommits, {
+        repositoryId: args.repositoryId,
+        userId: args.userId,
+        commits: validCommits,
+      });
+    }
+
+    return validCommits;
+  },
+});
