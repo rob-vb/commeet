@@ -60,12 +60,14 @@ export const getCurrentUserWithAccounts = query({
     if (!authUser) return null;
 
     // Query accounts through the component adapter
+    // Note: authUser uses _id, not id
+    const userId = (authUser as any)._id || authUser.id;
     const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
       model: "account",
       where: [
         {
           field: "userId",
-          value: authUser.id,
+          value: userId,
         },
       ],
       paginationOpts: {
