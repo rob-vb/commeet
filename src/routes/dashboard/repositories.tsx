@@ -37,9 +37,6 @@ function RepositoriesPage() {
   const userWithAccounts = useQuery(api.auth.getCurrentUserWithAccounts);
   const isGitHubConnected = userWithAccounts?.hasGitHub ?? false;
 
-  // Debug: log the query result
-  console.log("userWithAccounts:", userWithAccounts);
-
   // Get repositories
   const repositories = useQuery(
     api.repositories.listByUser,
