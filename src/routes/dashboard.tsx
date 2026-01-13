@@ -1,4 +1,10 @@
-import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Link,
+  Outlet,
+  redirect,
+  useNavigate,
+} from "@tanstack/react-router";
 import { Button } from "~/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Separator } from "~/components/ui/separator";
@@ -10,12 +16,49 @@ import {
   Settings,
   LogOut,
 } from "lucide-react";
+import { useSession, signOut } from "~/lib/auth-client";
 
 export const Route = createFileRoute("/dashboard")({
+  beforeLoad: async ({ context }) => {
+    // Check auth on server side would go here
+    // For now, we'll handle it client-side
+  },
   component: DashboardLayout,
 });
 
 function DashboardLayout() {
+  const navigate = useNavigate();
+  const { data: session, isPending } = useSession();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate({ to: "/login" });
+  };
+
+  // Redirect to login if not authenticated
+  if (!isPending && !session) {
+    navigate({ to: "/login" });
+    return null;
+  }
+
+  // Show loading state
+  if (isPending) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  const user = session?.user;
+  const userInitials = user?.name
+    ? user.name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+    : user?.email?.[0]?.toUpperCase() || "U";
+
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
@@ -86,7 +129,11 @@ function DashboardLayout() {
               </Button>
             )}
           </Link>
-          <Button variant="ghost" className="w-full justify-start gap-2">
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-2"
+            onClick={handleLogout}
+          >
             <LogOut className="h-4 w-4" />
             Log out
           </Button>
@@ -96,11 +143,13 @@ function DashboardLayout() {
 
         <div className="flex items-center gap-3 px-4 py-4">
           <Avatar className="h-8 w-8">
-            <AvatarImage src="" alt="User" />
-            <AvatarFallback>U</AvatarFallback>
+            <AvatarImage src={user?.image || ""} alt={user?.name || "User"} />
+            <AvatarFallback>{userInitials}</AvatarFallback>
           </Avatar>
           <div className="flex-1 truncate">
-            <p className="truncate text-sm font-medium">User</p>
+            <p className="truncate text-sm font-medium">
+              {user?.name || user?.email || "User"}
+            </p>
             <p className="truncate text-xs text-muted-foreground">Free Plan</p>
           </div>
         </div>
