@@ -2,6 +2,7 @@ import { createFileRoute, Link, useSearch } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "~/lib/convex";
+import { useSyncUser } from "~/hooks/use-sync-user";
 import { Button } from "~/components/ui/button";
 import {
   Card,
@@ -55,15 +56,13 @@ function TweetsPage() {
   const [editContent, setEditContent] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
 
-  // Get current user
-  const userWithAccounts = useQuery(api.auth.getCurrentUserWithAccounts);
+  // Use sync hook
+  const { appUser, isLoading } = useSyncUser();
 
-  // Get tweets
+  // Get tweets using app user ID
   const allTweets = useQuery(
     api.tweets.listByUser,
-    userWithAccounts?.user?.id
-      ? { userId: userWithAccounts.user.id as any }
-      : "skip"
+    appUser?._id ? { userId: appUser._id } : "skip"
   );
 
   // Actions
@@ -89,12 +88,12 @@ function TweetsPage() {
   };
 
   const handleGenerate = async () => {
-    if (!userWithAccounts?.user?.id || commitIdsFromUrl.length === 0) return;
+    if (!appUser?._id || commitIdsFromUrl.length === 0) return;
     setGenerating(true);
 
     try {
       await generateTweets({
-        userId: userWithAccounts.user.id as any,
+        userId: appUser._id,
         commitIds: commitIdsFromUrl as any[],
         tone,
       });
@@ -125,7 +124,7 @@ function TweetsPage() {
   useEffect(() => {
     if (
       commitIdsFromUrl.length > 0 &&
-      userWithAccounts?.user?.id &&
+      appUser?._id &&
       !generating
     ) {
       // Check if we already have tweets for these commits
@@ -136,13 +135,13 @@ function TweetsPage() {
         handleGenerate();
       }
     }
-  }, [commitIdsFromUrl.join(","), userWithAccounts?.user?.id, allTweets]);
+  }, [commitIdsFromUrl.join(","), appUser?._id, allTweets]);
 
   const generatedTweets =
     allTweets?.filter((t) => t.status === "generated" || t.status === "edited") ?? [];
   const postedTweets = allTweets?.filter((t) => t.status === "posted") ?? [];
 
-  if (!userWithAccounts) {
+  if (isLoading || !appUser) {
     return (
       <div className="flex items-center justify-center p-8">
         <Loader2 className="h-8 w-8 animate-spin" />
