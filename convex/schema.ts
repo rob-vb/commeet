@@ -126,4 +126,10 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_status", ["status"])
     .index("by_user_and_status", ["userId", "status"]),
+
+  usageStats: defineTable({
+    userId: v.id("users"),
+    month: v.string(), // "2026-01" format
+    tweetGenerations: v.number(),
+  }).index("by_user_and_month", ["userId", "month"]),
 });
