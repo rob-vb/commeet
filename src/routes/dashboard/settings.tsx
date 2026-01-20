@@ -1,4 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import { useMutation } from "convex/react";
+import { api } from "~/lib/convex";
 import { Button } from "~/components/ui/button";
 import {
   Card,
@@ -21,30 +24,80 @@ import {
   MessageSquare,
   Check,
   X,
+  Loader2,
 } from "lucide-react";
+import { useSyncUser } from "~/hooks/use-sync-user";
+import { signIn } from "~/lib/auth-client";
 
 export const Route = createFileRoute("/dashboard/settings")({
   component: SettingsPage,
 });
 
 function SettingsPage() {
-  // Placeholder data - will be replaced with real data from Convex
+  // Use sync hook
+  const { appUser, hasGitHub, githubAccessToken, isLoading } = useSyncUser();
+  const updateVoiceSettings = useMutation(api.users.updateVoiceSettings);
+
+  const [productDescription, setProductDescription] = useState("");
+  const [targetAudience, setTargetAudience] = useState("");
+  const [voiceTone, setVoiceTone] = useState<"casual" | "professional" | "excited" | "technical">("casual");
+  const [exampleTweets, setExampleTweets] = useState<string[]>(["", "", ""]);
+  const [saving, setSaving] = useState(false);
+
+  // Get user data from appUser
   const user = {
-    name: "",
-    email: "",
-    plan: "free" as const,
-    githubConnected: false,
-    githubUsername: "",
-    twitterConnected: false,
-    twitterUsername: "",
+    name: appUser?.name || "",
+    email: appUser?.email || "",
+    plan: appUser?.plan || "free",
+    githubConnected: hasGitHub,
+    githubUsername: appUser?.githubUsername || "",
+    twitterConnected: !!appUser?.twitterUsername,
+    twitterUsername: appUser?.twitterUsername || "",
   };
 
   const voiceSettings = {
-    productDescription: "",
-    targetAudience: "",
-    voiceTone: "casual" as const,
-    exampleTweets: [] as string[],
+    productDescription: appUser?.productDescription || "",
+    targetAudience: appUser?.targetAudience || "",
+    voiceTone: appUser?.voiceTone || "casual",
+    exampleTweets: appUser?.exampleTweets || [],
   };
+
+  const handleSaveVoiceSettings = async () => {
+    if (!appUser?._id) return;
+    setSaving(true);
+    try {
+      await updateVoiceSettings({
+        userId: appUser._id,
+        voiceTone: voiceTone || voiceSettings.voiceTone,
+        productDescription: productDescription || voiceSettings.productDescription || undefined,
+        targetAudience: targetAudience || voiceSettings.targetAudience || undefined,
+        exampleTweets: exampleTweets.filter(t => t.trim()) || undefined,
+      });
+    } catch (error) {
+      console.error("Failed to save settings:", error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleConnectGitHub = async () => {
+    try {
+      await signIn.social({
+        provider: "github",
+        callbackURL: "/dashboard/settings",
+      });
+    } catch (error) {
+      console.error("Failed to connect GitHub:", error);
+    }
+  };
+
+  if (isLoading || !appUser) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
   const tones = [
     { value: "casual", label: "Casual", description: "Friendly and conversational" },
@@ -164,7 +217,10 @@ function SettingsPage() {
                 ))}
               </div>
 
-              <Button>Save Voice Settings</Button>
+              <Button onClick={handleSaveVoiceSettings} disabled={saving}>
+                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Save Voice Settings
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -196,7 +252,7 @@ function SettingsPage() {
                   </Button>
                 </div>
               ) : (
-                <Button className="gap-2">
+                <Button className="gap-2" onClick={handleConnectGitHub}>
                   <Github className="h-4 w-4" />
                   Connect GitHub
                 </Button>
