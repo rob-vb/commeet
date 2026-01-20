@@ -16,20 +16,7 @@ export default defineSchema({
     githubAccessToken: v.optional(v.string()),
     githubUsername: v.optional(v.string()),
 
-    // Twitter Connection
-    twitterAccessToken: v.optional(v.string()),
-    twitterRefreshToken: v.optional(v.string()),
-    twitterUsername: v.optional(v.string()),
-
     // Voice Settings
-    voiceTone: v.optional(
-      v.union(
-        v.literal("casual"),
-        v.literal("professional"),
-        v.literal("excited"),
-        v.literal("technical")
-      )
-    ),
     productDescription: v.optional(v.string()),
     targetAudience: v.optional(v.string()),
     exampleTweets: v.optional(v.array(v.string())),
@@ -99,33 +86,12 @@ export default defineSchema({
   generatedTweets: defineTable({
     userId: v.id("users"),
     commitIds: v.array(v.id("commits")),
-
-    // Tweet Content
     content: v.string(),
-    tone: v.union(
-      v.literal("casual"),
-      v.literal("professional"),
-      v.literal("excited"),
-      v.literal("technical")
-    ),
+    tone: v.optional(v.string()), // Free-form tone instruction, not enum
     characterCount: v.number(),
-
-    // Status
-    status: v.union(
-      v.literal("generated"),
-      v.literal("edited"),
-      v.literal("posted"),
-      v.literal("discarded")
-    ),
-    postedAt: v.optional(v.number()),
-    twitterPostId: v.optional(v.string()),
-
-    // Metadata
     generatedAt: v.number(),
   })
-    .index("by_user", ["userId"])
-    .index("by_status", ["status"])
-    .index("by_user_and_status", ["userId", "status"]),
+    .index("by_user", ["userId"]),
 
   usageStats: defineTable({
     userId: v.id("users"),
