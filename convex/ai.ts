@@ -1,197 +1,118 @@
+import Anthropic from "@anthropic-ai/sdk";
 import { v } from "convex/values";
-import { action, internalMutation } from "./_generated/server";
+import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 
-// Internal mutation to store generated tweets
-export const storeTweets = internalMutation({
-  args: {
-    tweets: v.array(
-      v.object({
-        userId: v.id("users"),
-        commitIds: v.array(v.id("commits")),
-        content: v.string(),
-        tone: v.union(
-          v.literal("casual"),
-          v.literal("professional"),
-          v.literal("excited"),
-          v.literal("technical")
-        ),
-      })
-    ),
-  },
-  handler: async (ctx, args) => {
-    const insertedIds: string[] = [];
-
-    for (const tweet of args.tweets) {
-      const id = await ctx.db.insert("generatedTweets", {
-        ...tweet,
-        characterCount: tweet.content.length,
-        status: "generated",
-        generatedAt: Date.now(),
-      });
-      insertedIds.push(id);
-    }
-
-    return insertedIds;
-  },
-});
-
-// Internal mutation to get commits
-export const getCommits = internalMutation({
-  args: { commitIds: v.array(v.id("commits")) },
-  handler: async (ctx, args) => {
-    const commits = await Promise.all(
-      args.commitIds.map((id) => ctx.db.get(id))
-    );
-    return commits.filter(Boolean);
-  },
-});
-
-const tonePrompts = {
-  casual: "Write in a casual, friendly tone like you're chatting with developer friends.",
-  professional: "Write in a professional, informative tone suitable for LinkedIn.",
-  excited: "Write with enthusiasm and excitement, using energetic language.",
-  technical: "Write with technical precision, highlighting specific technologies and implementations.",
-};
-
-// Action to generate tweets using Claude
-export const generateTweets = action({
+export const generateTweet = action({
   args: {
     userId: v.id("users"),
     commitIds: v.array(v.id("commits")),
-    tone: v.union(
-      v.literal("casual"),
-      v.literal("professional"),
-      v.literal("excited"),
-      v.literal("technical")
-    ),
-    productDescription: v.optional(v.string()),
-    targetAudience: v.optional(v.string()),
-    exampleTweets: v.optional(v.array(v.string())),
+    toneInstruction: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      throw new Error("ANTHROPIC_API_KEY is not configured");
+    // Check usage limits
+    const canGenerate = await ctx.runQuery(internal.usage.canGenerateTweetsInternal, {
+      userId: args.userId,
+    });
+    if (!canGenerate.allowed) {
+      throw new Error(canGenerate.reason || "Generation limit reached");
     }
 
-    // Get commit details
-    const commits = await ctx.runMutation(internal.ai.getCommits, {
-      commitIds: args.commitIds,
+    // Get user for context
+    const user = await ctx.runQuery(internal.users.getInternal, {
+      id: args.userId,
     });
 
-    if (commits.length === 0) {
-      throw new Error("No commits found");
+    // Get commits
+    const commits = await Promise.all(
+      args.commitIds.map((id) =>
+        ctx.runQuery(internal.commits.getInternal, { id })
+      )
+    );
+    const validCommits = commits.filter(Boolean);
+
+    if (validCommits.length === 0) {
+      throw new Error("No valid commits found");
     }
 
-    // Build the prompt
-    const commitSummary = commits
-      .map(
-        (commit: any) =>
-          `- ${commit.message.split("\n")[0]} (${commit.totalAdditions}+ / ${commit.totalDeletions}-)`
-      )
+    // Build commit summary for AI
+    const commitSummary = validCommits
+      .map((c) => {
+        const files = c!.filesChanged.map((f) => f.filename).join(", ");
+        return `- ${c!.message} (files: ${files}, +${c!.totalAdditions}/-${c!.totalDeletions})`;
+      })
       .join("\n");
 
-    const filesChanged = commits
-      .flatMap((commit: any) =>
-        commit.filesChanged.map((f: any) => f.filename)
-      )
-      .slice(0, 20);
+    // Build AI prompt
+    const toneGuide = args.toneInstruction
+      ? `Tone instruction: ${args.toneInstruction}`
+      : "Use a casual, authentic developer voice";
 
-    let contextPrompt = "";
-    if (args.productDescription) {
-      contextPrompt += `\n\nProduct/Project Description: ${args.productDescription}`;
-    }
-    if (args.targetAudience) {
-      contextPrompt += `\nTarget Audience: ${args.targetAudience}`;
-    }
-    if (args.exampleTweets && args.exampleTweets.length > 0) {
-      contextPrompt += `\n\nExample tweets to match the style:\n${args.exampleTweets.map((t) => `"${t}"`).join("\n")}`;
-    }
+    const contextGuide = user?.productDescription
+      ? `Product context: ${user.productDescription}`
+      : "";
 
-    const prompt = `You are a skilled developer and content creator who writes engaging tweets about coding progress and updates. Generate 3 different tweet variations for the following commit(s).
+    const audienceGuide = user?.targetAudience
+      ? `Target audience: ${user.targetAudience}`
+      : "";
 
-${tonePrompts[args.tone]}
-${contextPrompt}
+    const prompt = `You are helping a developer share their coding progress on Twitter/X.
 
-Commits:
+Generate ONE tweet (max 280 characters) that summarizes these commits in an engaging way:
+
 ${commitSummary}
 
-Files changed: ${filesChanged.join(", ")}
+${contextGuide}
+${audienceGuide}
+${toneGuide}
 
-Requirements:
-- Each tweet must be under 280 characters
-- Make them engaging and shareable
-- Include relevant hashtags (1-3 per tweet)
-- Focus on the value/impact of the changes, not just what was done
-- Don't use generic phrases like "Just pushed" or "Working on"
-- Be specific about what was built/fixed/improved
+Guidelines:
+- Be authentic and conversational, not corporate
+- Focus on what was built/fixed, not technical git details
+- Make it interesting to non-developers too if possible
+- Stay under 280 characters
+- Don't use hashtags unless they add value
+- Emojis are okay but don't overdo it
 
-Return exactly 3 tweets, one per line, with no numbering or extra formatting.`;
+Return ONLY the tweet text, nothing else.`;
 
-    // Call Claude API
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 1024,
-        messages: [
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-      }),
+    const anthropic = new Anthropic();
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 150,
+      messages: [{ role: "user", content: prompt }],
     });
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Claude API error: ${response.status} - ${error}`);
+    const content = response.content[0];
+    if (!content || content.type !== "text") {
+      throw new Error("Unexpected response type");
     }
 
-    const data = await response.json();
-    const content = data.content[0]?.text || "";
-
-    // Parse the tweets (one per line)
-    const tweets = content
-      .split("\n")
-      .map((line: string) => line.trim())
-      .filter((line: string) => line.length > 0 && line.length <= 280)
-      .slice(0, 3);
-
-    if (tweets.length === 0) {
-      throw new Error("Failed to generate valid tweets");
+    let tweet = content.text.trim();
+    // Remove quotes if AI wrapped the tweet in them
+    if (tweet.startsWith('"') && tweet.endsWith('"')) {
+      tweet = tweet.slice(1, -1);
     }
 
-    // Store tweets in database
-    const tweetsToStore = tweets.map((content: string) => ({
+    // Truncate if somehow over limit
+    if (tweet.length > 280) {
+      tweet = tweet.slice(0, 277) + "...";
+    }
+
+    // Save to database
+    const tweetId = await ctx.runMutation(internal.tweets.createInternal, {
       userId: args.userId,
       commitIds: args.commitIds,
-      content,
-      tone: args.tone,
-    }));
-
-    const insertedIds = await ctx.runMutation(internal.ai.storeTweets, {
-      tweets: tweetsToStore,
+      content: tweet,
+      tone: args.toneInstruction,
     });
 
-    // Increment usage stats
+    // Track usage
     await ctx.runMutation(internal.usage.incrementTweetGenerationsInternal, {
       userId: args.userId,
-      count: tweets.length,
+      count: 1,
     });
 
-    return {
-      tweets: tweets.map((content: string, i: number) => ({
-        id: insertedIds[i],
-        content,
-        characterCount: content.length,
-      })),
-    };
+    return { id: tweetId, content: tweet, characterCount: tweet.length };
   },
 });
