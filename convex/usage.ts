@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query, internalMutation } from "./_generated/server";
+import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 
 const PLAN_LIMITS = {
   free: { repositories: 1, generations: 10 },
@@ -96,6 +96,40 @@ export const canGenerateTweets = query({
     }
 
     return { allowed: true, current: currentCount, limit, plan };
+  },
+});
+
+// Internal query for use by actions
+export const canGenerateTweetsInternal = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) return { allowed: false, reason: "User not found" };
+
+    const plan = user.plan || "free";
+    const limit = PLAN_LIMITS[plan].generations;
+
+    if (limit === Infinity) {
+      return { allowed: true };
+    }
+
+    const month = getCurrentMonth();
+    const stats = await ctx.db
+      .query("usageStats")
+      .withIndex("by_user_and_month", (q) =>
+        q.eq("userId", args.userId).eq("month", month)
+      )
+      .unique();
+
+    const used = stats?.tweetGenerations ?? 0;
+    if (used >= limit) {
+      return {
+        allowed: false,
+        reason: `You've used ${used}/${limit} tweet generations this month. Upgrade for more.`,
+      };
+    }
+
+    return { allowed: true };
   },
 });
 
