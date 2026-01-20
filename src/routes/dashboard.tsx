@@ -17,6 +17,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { useSession, signOut } from "~/lib/auth-client";
+import { useSyncUser } from "~/hooks/use-sync-user";
 
 export const Route = createFileRoute("/dashboard")({
   beforeLoad: async ({ context }) => {
@@ -29,6 +30,7 @@ export const Route = createFileRoute("/dashboard")({
 function DashboardLayout() {
   const navigate = useNavigate();
   const { data: session, isPending } = useSession();
+  const { isLoading: isSyncLoading } = useSyncUser();
 
   const handleLogout = async () => {
     await signOut();
@@ -41,8 +43,8 @@ function DashboardLayout() {
     return null;
   }
 
-  // Show loading state
-  if (isPending) {
+  // Show loading state while syncing
+  if (isPending || isSyncLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-muted-foreground">Loading...</div>
