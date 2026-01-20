@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalQuery, mutation, query } from "./_generated/server";
 
 export const listByUser = query({
   args: {
@@ -38,6 +38,13 @@ export const listByRepository = query({
 });
 
 export const get = query({
+  args: { id: v.id("commits") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.id);
+  },
+});
+
+export const getInternal = internalQuery({
   args: { id: v.id("commits") },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.id);
