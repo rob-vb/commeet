@@ -12,7 +12,6 @@ import {
   GitCommit,
   LayoutDashboard,
   FolderGit2,
-  MessageSquare,
   Settings,
   LogOut,
 } from "lucide-react";
@@ -90,28 +89,6 @@ function DashboardLayout() {
               >
                 <FolderGit2 className="h-4 w-4" />
                 Repositories
-              </Button>
-            )}
-          </Link>
-          <Link to="/dashboard/commits">
-            {({ isActive }) => (
-              <Button
-                variant={isActive ? "secondary" : "ghost"}
-                className="w-full justify-start gap-2"
-              >
-                <GitCommit className="h-4 w-4" />
-                Commits
-              </Button>
-            )}
-          </Link>
-          <Link to="/dashboard/tweets">
-            {({ isActive }) => (
-              <Button
-                variant={isActive ? "secondary" : "ghost"}
-                className="w-full justify-start gap-2"
-              >
-                <MessageSquare className="h-4 w-4" />
-                Generated Tweets
               </Button>
             )}
           </Link>
