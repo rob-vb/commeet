@@ -142,3 +142,55 @@ export const createBatch = mutation({
     return insertedIds;
   },
 });
+
+export const getByDateRange = query({
+  args: {
+    userId: v.id("users"),
+    startDate: v.number(), // Unix timestamp
+    endDate: v.number(), // Unix timestamp
+  },
+  handler: async (ctx, args) => {
+    const commits = await ctx.db
+      .query("commits")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .filter((q) =>
+        q.and(
+          q.gte(q.field("committedAt"), args.startDate),
+          q.lte(q.field("committedAt"), args.endDate)
+        )
+      )
+      .order("desc")
+      .collect();
+
+    return commits;
+  },
+});
+
+export const getToday = query({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const now = new Date();
+    const startOfDay = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    ).getTime();
+    const endOfDay = startOfDay + 24 * 60 * 60 * 1000 - 1;
+
+    const commits = await ctx.db
+      .query("commits")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .filter((q) =>
+        q.and(
+          q.gte(q.field("committedAt"), startOfDay),
+          q.lte(q.field("committedAt"), endOfDay)
+        )
+      )
+      .order("desc")
+      .collect();
+
+    return commits;
+  },
+});
