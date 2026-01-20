@@ -111,3 +111,51 @@ export const disconnectTwitter = mutation({
     });
   },
 });
+
+// Get or create app user from Better Auth user
+export const getOrCreateFromBetterAuth = mutation({
+  args: {
+    betterAuthId: v.string(),
+    email: v.string(),
+    name: v.optional(v.string()),
+    image: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Check if user already exists with this Better Auth ID
+    const existing = await ctx.db
+      .query("users")
+      .withIndex("by_better_auth_id", (q) => q.eq("betterAuthId", args.betterAuthId))
+      .unique();
+
+    if (existing) {
+      // Update name/image if changed
+      if (args.name !== existing.name || args.image !== existing.image) {
+        await ctx.db.patch(existing._id, {
+          name: args.name,
+          image: args.image,
+        });
+      }
+      return existing._id;
+    }
+
+    // Create new user
+    return await ctx.db.insert("users", {
+      betterAuthId: args.betterAuthId,
+      email: args.email,
+      name: args.name,
+      image: args.image,
+      plan: "free",
+    });
+  },
+});
+
+// Get app user by Better Auth ID
+export const getByBetterAuthId = query({
+  args: { betterAuthId: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("users")
+      .withIndex("by_better_auth_id", (q) => q.eq("betterAuthId", args.betterAuthId))
+      .unique();
+  },
+});
