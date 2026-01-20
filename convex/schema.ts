@@ -3,6 +3,9 @@ import { v } from "convex/values";
 
 export default defineSchema({
   users: defineTable({
+    // Better Auth link
+    betterAuthId: v.string(),
+
     // Auth (Better Auth handles core auth)
     email: v.string(),
     name: v.optional(v.string()),
@@ -38,6 +41,7 @@ export default defineSchema({
     planExpiresAt: v.optional(v.number()),
   })
     .index("by_email", ["email"])
+    .index("by_better_auth_id", ["betterAuthId"])
     .index("by_github_id", ["githubId"])
     .index("by_stripe_customer_id", ["stripeCustomerId"]),
 
