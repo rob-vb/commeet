@@ -23,6 +23,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { signIn } from "~/lib/auth-client";
+import { useSyncUser } from "~/hooks/use-sync-user";
 
 export const Route = createFileRoute("/dashboard/repositories")({
   component: RepositoriesPage,
@@ -33,16 +34,14 @@ function RepositoriesPage() {
   const [syncing, setSyncing] = useState(false);
   const [connectingRepo, setConnectingRepo] = useState<number | null>(null);
 
-  // Get current user with GitHub status
-  const userWithAccounts = useQuery(api.auth.getCurrentUserWithAccounts);
-  const isGitHubConnected = userWithAccounts?.hasGitHub ?? false;
+  // Use sync hook instead of direct query
+  const { appUser, hasGitHub, githubAccessToken, isLoading } = useSyncUser();
+  const isGitHubConnected = hasGitHub;
 
-  // Get repositories
+  // Get repositories using app user ID
   const repositories = useQuery(
     api.repositories.listByUser,
-    userWithAccounts?.user?.id
-      ? { userId: userWithAccounts.user.id as any }
-      : "skip"
+    appUser?._id ? { userId: appUser._id } : "skip"
   );
 
   // Actions
@@ -62,13 +61,12 @@ function RepositoriesPage() {
   };
 
   const handleSyncRepos = async () => {
-    if (!userWithAccounts?.githubAccessToken || !userWithAccounts.user?.id)
-      return;
+    if (!githubAccessToken || !appUser?._id) return;
     setSyncing(true);
     try {
       await fetchRepos({
-        accessToken: userWithAccounts.githubAccessToken,
-        userId: userWithAccounts.user.id as any,
+        accessToken: githubAccessToken,
+        userId: appUser._id,
       });
     } catch (error) {
       console.error("Failed to sync repos:", error);
@@ -78,12 +76,13 @@ function RepositoriesPage() {
   };
 
   const handleToggleRepo = async (repo: any) => {
+    if (!appUser?._id) return;
     if (repo.isActive) {
       await disconnectRepo({ id: repo._id });
     } else {
       setConnectingRepo(repo.githubId);
       await connectRepo({
-        userId: userWithAccounts!.user!.id as any,
+        userId: appUser._id,
         githubId: repo.githubId,
         name: repo.name,
         fullName: repo.fullName,
@@ -103,7 +102,7 @@ function RepositoriesPage() {
         repo.fullName.toLowerCase().includes(search.toLowerCase())
     ) ?? [];
 
-  if (!userWithAccounts) {
+  if (isLoading || !appUser) {
     return (
       <div className="flex items-center justify-center p-8">
         <Loader2 className="h-8 w-8 animate-spin" />
