@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalQuery } from "./_generated/server";
 
 export const getByEmail = query({
   args: { email: v.string() },
@@ -157,5 +157,13 @@ export const getByBetterAuthId = query({
       .query("users")
       .withIndex("by_better_auth_id", (q) => q.eq("betterAuthId", args.betterAuthId))
       .unique();
+  },
+});
+
+// Internal query for use by actions (Stripe)
+export const getInternal = internalQuery({
+  args: { id: v.id("users") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.id);
   },
 });
