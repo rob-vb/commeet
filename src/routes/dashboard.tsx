@@ -12,11 +12,11 @@ import {
   GitCommit,
   LayoutDashboard,
   FolderGit2,
-  MessageSquare,
   Settings,
   LogOut,
 } from "lucide-react";
 import { useSession, signOut } from "~/lib/auth-client";
+import { useSyncUser } from "~/hooks/use-sync-user";
 
 export const Route = createFileRoute("/dashboard")({
   beforeLoad: async ({ context }) => {
@@ -29,6 +29,7 @@ export const Route = createFileRoute("/dashboard")({
 function DashboardLayout() {
   const navigate = useNavigate();
   const { data: session, isPending } = useSession();
+  const { isLoading: isSyncLoading } = useSyncUser();
 
   const handleLogout = async () => {
     await signOut();
@@ -41,8 +42,8 @@ function DashboardLayout() {
     return null;
   }
 
-  // Show loading state
-  if (isPending) {
+  // Show loading state while syncing
+  if (isPending || isSyncLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-muted-foreground">Loading...</div>
@@ -88,28 +89,6 @@ function DashboardLayout() {
               >
                 <FolderGit2 className="h-4 w-4" />
                 Repositories
-              </Button>
-            )}
-          </Link>
-          <Link to="/dashboard/commits">
-            {({ isActive }) => (
-              <Button
-                variant={isActive ? "secondary" : "ghost"}
-                className="w-full justify-start gap-2"
-              >
-                <GitCommit className="h-4 w-4" />
-                Commits
-              </Button>
-            )}
-          </Link>
-          <Link to="/dashboard/tweets">
-            {({ isActive }) => (
-              <Button
-                variant={isActive ? "secondary" : "ghost"}
-                className="w-full justify-start gap-2"
-              >
-                <MessageSquare className="h-4 w-4" />
-                Generated Tweets
               </Button>
             )}
           </Link>

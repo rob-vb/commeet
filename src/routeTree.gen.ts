@@ -14,10 +14,8 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
-import { Route as DashboardTweetsRouteImport } from './routes/dashboard/tweets'
 import { Route as DashboardSettingsRouteImport } from './routes/dashboard/settings'
 import { Route as DashboardRepositoriesRouteImport } from './routes/dashboard/repositories'
-import { Route as DashboardCommitsRouteImport } from './routes/dashboard/commits'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -44,11 +42,6 @@ const DashboardIndexRoute = DashboardIndexRouteImport.update({
   path: '/',
   getParentRoute: () => DashboardRoute,
 } as any)
-const DashboardTweetsRoute = DashboardTweetsRouteImport.update({
-  id: '/tweets',
-  path: '/tweets',
-  getParentRoute: () => DashboardRoute,
-} as any)
 const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -59,31 +52,22 @@ const DashboardRepositoriesRoute = DashboardRepositoriesRouteImport.update({
   path: '/repositories',
   getParentRoute: () => DashboardRoute,
 } as any)
-const DashboardCommitsRoute = DashboardCommitsRouteImport.update({
-  id: '/commits',
-  path: '/commits',
-  getParentRoute: () => DashboardRoute,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
-  '/dashboard/commits': typeof DashboardCommitsRoute
   '/dashboard/repositories': typeof DashboardRepositoriesRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
-  '/dashboard/tweets': typeof DashboardTweetsRoute
   '/dashboard/': typeof DashboardIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
-  '/dashboard/commits': typeof DashboardCommitsRoute
   '/dashboard/repositories': typeof DashboardRepositoriesRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
-  '/dashboard/tweets': typeof DashboardTweetsRoute
   '/dashboard': typeof DashboardIndexRoute
 }
 export interface FileRoutesById {
@@ -92,10 +76,8 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
-  '/dashboard/commits': typeof DashboardCommitsRoute
   '/dashboard/repositories': typeof DashboardRepositoriesRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
-  '/dashboard/tweets': typeof DashboardTweetsRoute
   '/dashboard/': typeof DashboardIndexRoute
 }
 export interface FileRouteTypes {
@@ -105,20 +87,16 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/signup'
-    | '/dashboard/commits'
     | '/dashboard/repositories'
     | '/dashboard/settings'
-    | '/dashboard/tweets'
     | '/dashboard/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/login'
     | '/signup'
-    | '/dashboard/commits'
     | '/dashboard/repositories'
     | '/dashboard/settings'
-    | '/dashboard/tweets'
     | '/dashboard'
   id:
     | '__root__'
@@ -126,10 +104,8 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/signup'
-    | '/dashboard/commits'
     | '/dashboard/repositories'
     | '/dashboard/settings'
-    | '/dashboard/tweets'
     | '/dashboard/'
   fileRoutesById: FileRoutesById
 }
@@ -177,13 +153,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardIndexRouteImport
       parentRoute: typeof DashboardRoute
     }
-    '/dashboard/tweets': {
-      id: '/dashboard/tweets'
-      path: '/tweets'
-      fullPath: '/dashboard/tweets'
-      preLoaderRoute: typeof DashboardTweetsRouteImport
-      parentRoute: typeof DashboardRoute
-    }
     '/dashboard/settings': {
       id: '/dashboard/settings'
       path: '/settings'
@@ -198,29 +167,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRepositoriesRouteImport
       parentRoute: typeof DashboardRoute
     }
-    '/dashboard/commits': {
-      id: '/dashboard/commits'
-      path: '/commits'
-      fullPath: '/dashboard/commits'
-      preLoaderRoute: typeof DashboardCommitsRouteImport
-      parentRoute: typeof DashboardRoute
-    }
   }
 }
 
 interface DashboardRouteChildren {
-  DashboardCommitsRoute: typeof DashboardCommitsRoute
   DashboardRepositoriesRoute: typeof DashboardRepositoriesRoute
   DashboardSettingsRoute: typeof DashboardSettingsRoute
-  DashboardTweetsRoute: typeof DashboardTweetsRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
-  DashboardCommitsRoute: DashboardCommitsRoute,
   DashboardRepositoriesRoute: DashboardRepositoriesRoute,
   DashboardSettingsRoute: DashboardSettingsRoute,
-  DashboardTweetsRoute: DashboardTweetsRoute,
   DashboardIndexRoute: DashboardIndexRoute,
 }
 

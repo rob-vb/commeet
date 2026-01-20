@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalQuery } from "./_generated/server";
 
 export const getByEmail = query({
   args: { email: v.string() },
@@ -46,14 +46,6 @@ export const create = mutation({
 export const updateVoiceSettings = mutation({
   args: {
     userId: v.id("users"),
-    voiceTone: v.optional(
-      v.union(
-        v.literal("casual"),
-        v.literal("professional"),
-        v.literal("excited"),
-        v.literal("technical")
-      )
-    ),
     productDescription: v.optional(v.string()),
     targetAudience: v.optional(v.string()),
     exampleTweets: v.optional(v.array(v.string())),
@@ -88,26 +80,58 @@ export const disconnectGitHub = mutation({
   },
 });
 
-export const connectTwitter = mutation({
+// Get or create app user from Better Auth user
+export const getOrCreateFromBetterAuth = mutation({
   args: {
-    userId: v.id("users"),
-    twitterUsername: v.string(),
-    twitterAccessToken: v.string(),
-    twitterRefreshToken: v.string(),
+    betterAuthId: v.string(),
+    email: v.string(),
+    name: v.optional(v.string()),
+    image: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { userId, ...twitterData } = args;
-    await ctx.db.patch(userId, twitterData);
+    // Check if user already exists with this Better Auth ID
+    const existing = await ctx.db
+      .query("users")
+      .withIndex("by_better_auth_id", (q) => q.eq("betterAuthId", args.betterAuthId))
+      .unique();
+
+    if (existing) {
+      // Update name/image if changed
+      if (args.name !== existing.name || args.image !== existing.image) {
+        await ctx.db.patch(existing._id, {
+          name: args.name,
+          image: args.image,
+        });
+      }
+      return existing._id;
+    }
+
+    // Create new user
+    return await ctx.db.insert("users", {
+      betterAuthId: args.betterAuthId,
+      email: args.email,
+      name: args.name,
+      image: args.image,
+      plan: "free",
+    });
   },
 });
 
-export const disconnectTwitter = mutation({
-  args: { userId: v.id("users") },
+// Get app user by Better Auth ID
+export const getByBetterAuthId = query({
+  args: { betterAuthId: v.string() },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.userId, {
-      twitterUsername: undefined,
-      twitterAccessToken: undefined,
-      twitterRefreshToken: undefined,
-    });
+    return await ctx.db
+      .query("users")
+      .withIndex("by_better_auth_id", (q) => q.eq("betterAuthId", args.betterAuthId))
+      .unique();
+  },
+});
+
+// Internal query for use by actions (Stripe)
+export const getInternal = internalQuery({
+  args: { id: v.id("users") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.id);
   },
 });

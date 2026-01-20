@@ -3,6 +3,9 @@ import { v } from "convex/values";
 
 export default defineSchema({
   users: defineTable({
+    // Better Auth link
+    betterAuthId: v.string(),
+
     // Auth (Better Auth handles core auth)
     email: v.string(),
     name: v.optional(v.string()),
@@ -13,20 +16,7 @@ export default defineSchema({
     githubAccessToken: v.optional(v.string()),
     githubUsername: v.optional(v.string()),
 
-    // Twitter Connection
-    twitterAccessToken: v.optional(v.string()),
-    twitterRefreshToken: v.optional(v.string()),
-    twitterUsername: v.optional(v.string()),
-
     // Voice Settings
-    voiceTone: v.optional(
-      v.union(
-        v.literal("casual"),
-        v.literal("professional"),
-        v.literal("excited"),
-        v.literal("technical")
-      )
-    ),
     productDescription: v.optional(v.string()),
     targetAudience: v.optional(v.string()),
     exampleTweets: v.optional(v.array(v.string())),
@@ -38,6 +28,7 @@ export default defineSchema({
     planExpiresAt: v.optional(v.number()),
   })
     .index("by_email", ["email"])
+    .index("by_better_auth_id", ["betterAuthId"])
     .index("by_github_id", ["githubId"])
     .index("by_stripe_customer_id", ["stripeCustomerId"]),
 
@@ -95,31 +86,16 @@ export default defineSchema({
   generatedTweets: defineTable({
     userId: v.id("users"),
     commitIds: v.array(v.id("commits")),
-
-    // Tweet Content
     content: v.string(),
-    tone: v.union(
-      v.literal("casual"),
-      v.literal("professional"),
-      v.literal("excited"),
-      v.literal("technical")
-    ),
+    tone: v.optional(v.string()), // Free-form tone instruction, not enum
     characterCount: v.number(),
-
-    // Status
-    status: v.union(
-      v.literal("generated"),
-      v.literal("edited"),
-      v.literal("posted"),
-      v.literal("discarded")
-    ),
-    postedAt: v.optional(v.number()),
-    twitterPostId: v.optional(v.string()),
-
-    // Metadata
     generatedAt: v.number(),
   })
-    .index("by_user", ["userId"])
-    .index("by_status", ["status"])
-    .index("by_user_and_status", ["userId", "status"]),
+    .index("by_user", ["userId"]),
+
+  usageStats: defineTable({
+    userId: v.id("users"),
+    month: v.string(), // "2026-01" format
+    tweetGenerations: v.number(),
+  }).index("by_user_and_month", ["userId", "month"]),
 });
