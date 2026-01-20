@@ -47,7 +47,7 @@ export const getCurrentUser = query({
   },
 });
 
-// Get the current user with their linked accounts
+// Get the current user with their linked accounts and app user ID
 export const getCurrentUserWithAccounts = query({
   args: {},
   handler: async (ctx) => {
@@ -78,8 +78,15 @@ export const getCurrentUserWithAccounts = query({
     // Find GitHub account
     const githubAccount = accounts.find((acc: any) => acc.providerId === "github");
 
+    // Get app user by Better Auth ID
+    const appUser = await ctx.db
+      .query("users")
+      .withIndex("by_better_auth_id", (q) => q.eq("betterAuthId", authUser.id))
+      .unique();
+
     return {
-      user: authUser,
+      authUser,
+      appUser,  // This is the users table record with _id
       hasGitHub: !!githubAccount,
       githubAccessToken: githubAccount?.accessToken || null,
       githubUsername: githubAccount?.accountId || null,
