@@ -16,11 +16,12 @@ export function useSyncUser() {
       !syncedRef.current
     ) {
       syncedRef.current = true;
+      const authUser = userWithAccounts.authUser;
       syncUser({
-        betterAuthId: userWithAccounts.authUser.id,
-        email: userWithAccounts.authUser.email,
-        name: userWithAccounts.authUser.name || undefined,
-        image: userWithAccounts.authUser.image || undefined,
+        betterAuthId: String(authUser._id),
+        email: authUser.email,
+        name: authUser.name || undefined,
+        image: authUser.image || undefined,
       }).catch(console.error);
     }
   }, [userWithAccounts, syncUser]);

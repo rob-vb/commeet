@@ -59,13 +59,16 @@ export const getCurrentUserWithAccounts = query({
     }
     if (!authUser) return null;
 
+    // Get the Better Auth user ID as string for lookups
+    const betterAuthUserId = String(authUser._id);
+
     // Query accounts through the component adapter
     const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
       model: "account",
       where: [
         {
           field: "userId",
-          value: authUser.id,
+          value: betterAuthUserId,
         },
       ],
       paginationOpts: {
@@ -81,7 +84,7 @@ export const getCurrentUserWithAccounts = query({
     // Get app user by Better Auth ID
     const appUser = await ctx.db
       .query("users")
-      .withIndex("by_better_auth_id", (q) => q.eq("betterAuthId", authUser.id))
+      .withIndex("by_better_auth_id", (q) => q.eq("betterAuthId", betterAuthUserId))
       .unique();
 
     return {
