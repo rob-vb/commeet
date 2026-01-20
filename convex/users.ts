@@ -46,14 +46,6 @@ export const create = mutation({
 export const updateVoiceSettings = mutation({
   args: {
     userId: v.id("users"),
-    voiceTone: v.optional(
-      v.union(
-        v.literal("casual"),
-        v.literal("professional"),
-        v.literal("excited"),
-        v.literal("technical")
-      )
-    ),
     productDescription: v.optional(v.string()),
     targetAudience: v.optional(v.string()),
     exampleTweets: v.optional(v.array(v.string())),
@@ -84,30 +76,6 @@ export const disconnectGitHub = mutation({
       githubId: undefined,
       githubUsername: undefined,
       githubAccessToken: undefined,
-    });
-  },
-});
-
-export const connectTwitter = mutation({
-  args: {
-    userId: v.id("users"),
-    twitterUsername: v.string(),
-    twitterAccessToken: v.string(),
-    twitterRefreshToken: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const { userId, ...twitterData } = args;
-    await ctx.db.patch(userId, twitterData);
-  },
-});
-
-export const disconnectTwitter = mutation({
-  args: { userId: v.id("users") },
-  handler: async (ctx, args) => {
-    await ctx.db.patch(args.userId, {
-      twitterUsername: undefined,
-      twitterAccessToken: undefined,
-      twitterRefreshToken: undefined,
     });
   },
 });
