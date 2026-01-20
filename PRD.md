@@ -200,6 +200,6 @@ Commeet automates the process by:
 - [x] AI tweet generation
 - [x] Tweet management UI
 - [x] Stripe billing integration
-- [ ] Twitter API integration
+- [x] Twitter sharing (web intent)
 - [ ] Production deployment
 - [ ] Monitoring and error tracking
