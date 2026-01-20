@@ -199,7 +199,7 @@ Commeet automates the process by:
 - [x] Commit fetching
 - [x] AI tweet generation
 - [x] Tweet management UI
-- [ ] Stripe billing integration
+- [x] Stripe billing integration
 - [ ] Twitter API integration
 - [ ] Production deployment
 - [ ] Monitoring and error tracking

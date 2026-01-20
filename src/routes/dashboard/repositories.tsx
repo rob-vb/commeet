@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { signIn } from "~/lib/auth-client";
 import { useSyncUser } from "~/hooks/use-sync-user";
+import { UpgradeModal } from "~/components/upgrade-modal";
 
 export const Route = createFileRoute("/dashboard/repositories")({
   component: RepositoriesPage,
@@ -33,6 +34,8 @@ function RepositoriesPage() {
   const [search, setSearch] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [connectingRepo, setConnectingRepo] = useState<number | null>(null);
+  const [showUpgrade, setShowUpgrade] = useState(false);
+  const [upgradeReason, setUpgradeReason] = useState("");
 
   // Use sync hook instead of direct query
   const { appUser, hasGitHub, githubAccessToken, isLoading } = useSyncUser();
@@ -41,6 +44,12 @@ function RepositoriesPage() {
   // Get repositories using app user ID
   const repositories = useQuery(
     api.repositories.listByUser,
+    appUser?._id ? { userId: appUser._id } : "skip"
+  );
+
+  // Check if user can connect more repositories
+  const canConnect = useQuery(
+    api.usage.canConnectRepository,
     appUser?._id ? { userId: appUser._id } : "skip"
   );
 
@@ -80,6 +89,12 @@ function RepositoriesPage() {
     if (repo.isActive) {
       await disconnectRepo({ id: repo._id });
     } else {
+      // Check if user can connect more repositories
+      if (canConnect && !canConnect.allowed) {
+        setUpgradeReason(canConnect.reason || "You've reached your repository limit.");
+        setShowUpgrade(true);
+        return;
+      }
       setConnectingRepo(repo.githubId);
       await connectRepo({
         userId: appUser._id,
@@ -251,6 +266,14 @@ function RepositoriesPage() {
           )}
         </>
       )}
+
+      <UpgradeModal
+        open={showUpgrade}
+        onOpenChange={setShowUpgrade}
+        userId={appUser._id}
+        reason={upgradeReason}
+        currentPlan={appUser.plan || "free"}
+      />
     </div>
   );
 }
