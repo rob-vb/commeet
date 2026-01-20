@@ -180,6 +180,12 @@ Return exactly 3 tweets, one per line, with no numbering or extra formatting.`;
       tweets: tweetsToStore,
     });
 
+    // Increment usage stats
+    await ctx.runMutation(internal.usage.incrementTweetGenerationsInternal, {
+      userId: args.userId,
+      count: tweets.length,
+    });
+
     return {
       tweets: tweets.map((content: string, i: number) => ({
         id: insertedIds[i],
