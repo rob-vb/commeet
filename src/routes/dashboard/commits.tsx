@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useAction } from "convex/react";
 import { api } from "~/lib/convex";
+import { useSyncUser } from "~/hooks/use-sync-user";
 import { Button } from "~/components/ui/button";
 import {
   Card,
@@ -33,23 +34,19 @@ function CommitsPage() {
   const [selectedCommits, setSelectedCommits] = useState<string[]>([]);
   const [syncing, setSyncing] = useState(false);
 
-  // Get current user
-  const userWithAccounts = useQuery(api.auth.getCurrentUserWithAccounts);
+  // Use sync hook
+  const { appUser, githubAccessToken, isLoading } = useSyncUser();
 
   // Get connected repositories
   const repositories = useQuery(
     api.repositories.listActiveByUser,
-    userWithAccounts?.user?.id
-      ? { userId: userWithAccounts.user.id as any }
-      : "skip"
+    appUser?._id ? { userId: appUser._id } : "skip"
   );
 
   // Get commits
   const commits = useQuery(
     api.commits.listByUser,
-    userWithAccounts?.user?.id
-      ? { userId: userWithAccounts.user.id as any, limit: 100 }
-      : "skip"
+    appUser?._id ? { userId: appUser._id, limit: 100 } : "skip"
   );
 
   // Actions
@@ -63,14 +60,14 @@ function CommitsPage() {
   );
 
   const handleSyncCommits = async () => {
-    if (!userWithAccounts?.githubAccessToken || !repositories) return;
+    if (!githubAccessToken || !repositories || !appUser?._id) return;
     setSyncing(true);
 
     try {
       for (const repo of repositories) {
         await fetchCommits({
-          accessToken: userWithAccounts.githubAccessToken,
-          userId: userWithAccounts.user!.id as any,
+          accessToken: githubAccessToken,
+          userId: appUser._id,
           repositoryId: repo._id,
           repoFullName: repo.fullName,
         });
@@ -103,7 +100,7 @@ function CommitsPage() {
       commit.message.toLowerCase().includes(search.toLowerCase())
     ) ?? [];
 
-  if (!userWithAccounts) {
+  if (isLoading || !appUser) {
     return (
       <div className="flex items-center justify-center p-8">
         <Loader2 className="h-8 w-8 animate-spin" />
