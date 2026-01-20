@@ -1,4 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "convex/react";
+import { api } from "~/lib/convex";
 import { Button } from "~/components/ui/button";
 import {
   Card,
@@ -14,19 +16,45 @@ import {
   Send,
   Plus,
   ArrowRight,
+  Loader2,
 } from "lucide-react";
+import { useSyncUser } from "~/hooks/use-sync-user";
 
 export const Route = createFileRoute("/dashboard/")({
   component: DashboardPage,
 });
 
 function DashboardPage() {
-  // Placeholder stats - will be replaced with real data from Convex
+  // Use sync hook
+  const { appUser, isLoading } = useSyncUser();
+
+  // Get stats using app user ID
+  const repositories = useQuery(
+    api.repositories.listActiveByUser,
+    appUser?._id ? { userId: appUser._id } : "skip"
+  );
+  const commits = useQuery(
+    api.commits.listByUser,
+    appUser?._id ? { userId: appUser._id, limit: 1000 } : "skip"
+  );
+  const tweets = useQuery(
+    api.tweets.listByUser,
+    appUser?._id ? { userId: appUser._id } : "skip"
+  );
+
+  if (isLoading || !appUser) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
   const stats = {
-    repositories: 0,
-    commits: 0,
-    generatedTweets: 0,
-    postedTweets: 0,
+    repositories: repositories?.length ?? 0,
+    commits: commits?.length ?? 0,
+    generatedTweets: tweets?.filter(t => t.status === "generated" || t.status === "edited").length ?? 0,
+    postedTweets: tweets?.filter(t => t.status === "posted").length ?? 0,
   };
 
   return (
